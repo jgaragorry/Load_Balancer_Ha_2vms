@@ -99,15 +99,28 @@ Hola desde VM1
 
 ---
 
-## 🚀 Ejecución paso a paso
+## 🚀 Orden recomendado de ejecución paso a paso
 
+### Paso 1: Iniciar sesión en Azure
 ```bash
 az login
+```
+
+### Paso 2: Asignar permisos de ejecución y ejecutar los scripts en orden
+```bash
 chmod +x crear_lab_nlb.sh verificar_lab_nlb.sh eliminar_lab_nlb.sh
+
+# Crear toda la infraestructura
 ./crear_lab_nlb.sh
+
+# Verificar funcionamiento del balanceador
 ./verificar_lab_nlb.sh
+
+# Eliminar todos los recursos (tras finalizar las pruebas)
 ./eliminar_lab_nlb.sh
 ```
+
+> 💡 Ejecuta los comandos desde tu equipo local o desde Azure Cloud Shell.
 
 ---
 
