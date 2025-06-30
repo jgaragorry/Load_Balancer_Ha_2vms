@@ -1,70 +1,65 @@
 #!/bin/bash
-set -e
 
 RG="rg-nlb-lab"
-LOC="eastus"
+LOCATION="eastus"
 VNET="vnet-nlb"
 SUBNET="subnet-nlb"
-VM_SIZE="Standard_B1s"
-USERNAME="azureuser"
-PASSWORD="Password1234"
-AVSET="avset-nlb"
 NSG="nsg-nlb"
-PUBLIC_IP="pip-nlb"
-LB_NAME="lb-nlb"
-LB_FRONT="lb-front"
-LB_BACKEND="lb-backend"
+AVSET="avset-nlb"
+LB="lb-nlb"
+FRONT="lb-front"
+BACKEND="lb-backend"
 PROBE="http-probe"
 RULE="lb-rule-http"
-TAGS="autor=gmtech proyecto=lab_nlb_ha"
+VM1="vm1"
+VM2="vm2"
+IP1="ipconfig-vm1"
+IP2="ipconfig-vm2"
 
-echo "🔐 Iniciando sesión..."
 az login
 
 echo "🔧 Creando grupo de recursos..."
-az group create -n $RG -l $LOC --tags $TAGS
+az group create --name $RG --location $LOCATION --tags autor=gmtech proyecto=lab_nlb_ha
 
 echo "🌐 Creando VNet y subred..."
-az network vnet create -g $RG -n $VNET --address-prefix 10.20.0.0/16   --subnet-name $SUBNET --subnet-prefix 10.20.1.0/24
+az network vnet create --name $VNET --resource-group $RG --location $LOCATION --address-prefixes 10.20.0.0/16 --subnet-name $SUBNET --subnet-prefixes 10.20.1.0/24
 
 echo "🧱 Creando Availability Set..."
-az vm availability-set create -n $AVSET -g $RG   --platform-fault-domain-count 2 --platform-update-domain-count 2
+az vm availability-set create --name $AVSET --resource-group $RG --location $LOCATION --platform-fault-domain-count 2 --platform-update-domain-count 2 --sku Aligned
 
 echo "🔒 Creando NSG con reglas..."
-az network nsg create -g $RG -n $NSG
-az network nsg rule create -g $RG --nsg-name $NSG -n Allow80 --priority 1000   --access Allow --protocol Tcp --direction Inbound --destination-port-range 80
+az network nsg create --resource-group $RG --name $NSG --location $LOCATION
+az network nsg rule create --resource-group $RG --nsg-name $NSG --name Allow80 --protocol Tcp --direction Inbound --priority 1000 --source-address-prefixes '*' --source-port-ranges '*' --destination-address-prefixes '*' --destination-port-ranges 80 --access Allow
 
 echo "🌐 Creando IP pública..."
-az network public-ip create -g $RG -n $PUBLIC_IP --sku Basic --allocation-method Static
+az network public-ip create --name pip-nlb --resource-group $RG --location $LOCATION --sku Basic --allocation-method Static
 
 echo "🧱 Creando Load Balancer..."
-az network lb create -g $RG -n $LB_NAME --sku Basic   --public-ip-address $PUBLIC_IP   --frontend-ip-name $LB_FRONT   --backend-pool-name $LB_BACKEND
+az network lb create --resource-group $RG --name $LB --sku Basic --frontend-ip-name $FRONT --backend-pool-name $BACKEND --public-ip-address pip-nlb --location $LOCATION
 
 echo "📡 Agregando probe para salud HTTP..."
-az network lb probe create -g $RG --lb-name $LB_NAME -n $PROBE   --protocol Http --port 80 --path /
+az network lb probe create --resource-group $RG --lb-name $LB --name $PROBE --protocol Http --port 80 --path "/" --interval 15 --threshold 2
 
 echo "⚙️ Configurando regla de balanceo (HTTP 80)..."
-az network lb rule create -g $RG --lb-name $LB_NAME -n $RULE   --backend-pool-name $LB_BACKEND --backend-port 80   --frontend-ip-name $LB_FRONT --frontend-port 80   --protocol Tcp --probe-name $PROBE
+az network lb rule create --resource-group $RG --lb-name $LB --name $RULE --protocol Tcp --frontend-port 80 --backend-port 80 --frontend-ip-name $FRONT --backend-pool-name $BACKEND --probe-name $PROBE
 
-for i in 1 2; do
-  echo "🖥️ Creando VM$i..."
-  az vm create     --resource-group $RG     --name vm$i-nlb     --image Ubuntu2204     --size $VM_SIZE     --admin-username $USERNAME     --admin-password $PASSWORD     --vnet-name $VNET     --subnet $SUBNET     --nsg $NSG     --availability-set $AVSET     --tags $TAGS     --no-wait
-done
+echo "🖥️ Creando VM1..."
+az vm create --resource-group $RG --name $VM1 --image Ubuntu2204 --vnet-name $VNET --subnet $SUBNET --nsg $NSG --availability-set $AVSET --public-ip-address "" --admin-username azureuser --generate-ssh-keys --custom-data cloud-init-vm1.yml
+
+echo "🖥️ Creando VM2..."
+az vm create --resource-group $RG --name $VM2 --image Ubuntu2204 --vnet-name $VNET --subnet $SUBNET --nsg $NSG --availability-set $AVSET --public-ip-address "" --admin-username azureuser --generate-ssh-keys --custom-data cloud-init-vm2.yml
 
 echo "⏳ Esperando a que las VMs estén listas..."
-sleep 90
+sleep 30
 
-for i in 1 2; do
-  echo "🔁 Agregando NIC de VM$i al backend del LB..."
-  NIC_ID=$(az vm show -g $RG -n vm$i-nlb --query 'networkProfile.networkInterfaces[0].id' -o tsv)
-  NIC_NAME=$(basename $NIC_ID)
+echo "🔁 Agregando NIC de VM1 al backend del LB..."
+NIC1=$(az vm nic list --resource-group $RG --vm-name $VM1 --query "[0].name" -o tsv)
+az network nic ip-config address-pool add --resource-group $RG --nic-name $NIC1 --ip-config-name $IP1 --lb-name $LB --address-pool $BACKEND
 
-  az network nic ip-config address-pool add     --address-pool $LB_BACKEND     --ip-config-name ipconfig1     --nic-name $NIC_NAME     --resource-group $RG     --lb-name $LB_NAME     --backend-pool-name $LB_BACKEND
+echo "🔁 Agregando NIC de VM2 al backend del LB..."
+NIC2=$(az vm nic list --resource-group $RG --vm-name $VM2 --query "[0].name" -o tsv)
+az network nic ip-config address-pool add --resource-group $RG --nic-name $NIC2 --ip-config-name $IP2 --lb-name $LB --address-pool $BACKEND
 
-  echo "📝 Instalando Nginx y contenido en VM$i..."
-  az vm run-command invoke -g $RG -n vm$i-nlb     --command-id RunShellScript     --scripts "sudo mkdir -p /var/www/html && echo 'Hola desde VM$i' | sudo tee /var/www/html/index.html && sudo apt update && sudo apt install -y nginx && sudo systemctl start nginx"
-done
-
-IP_PUBLICA=$(az network public-ip show -g $RG -n $PUBLIC_IP --query ipAddress -o tsv)
 echo "✅ Laboratorio creado correctamente."
-echo "🌐 Accede al balanceador en: http://$IP_PUBLICA"
+IP=$(az network public-ip show --resource-group $RG --name pip-nlb --query ipAddress -o tsv)
+echo "🌐 Accede al balanceador en: http://$IP"
