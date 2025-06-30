@@ -54,6 +54,26 @@ echo "⏳ Esperando a que las VMs estén listas..."
 sleep 30
 
 echo "🔁 Agregando NIC de VM1 al backend del LB..."
+
+# Esperar que NIC1 esté disponible
+while true; do
+  NIC_ID1=$(az vm show --resource-group $RG --name $VM1 --query "networkProfile.networkInterfaces[0].id" -o tsv 2>/dev/null) && break
+  echo "⏳ Esperando que la NIC de VM1 esté disponible..."
+  sleep 5
+done
+NIC_NAME1=$(basename $NIC_ID1)
+az network nic ip-config address-pool add --resource-group $RG --nic-name $NIC_NAME1 --ip-config-name ipconfig1 --lb-name $LB --address-pool $BACKEND
+
+echo "🔁 Agregando NIC de VM2 al backend del LB..."
+
+# Esperar que NIC2 esté disponible
+while true; do
+  NIC_ID2=$(az vm show --resource-group $RG --name $VM2 --query "networkProfile.networkInterfaces[0].id" -o tsv 2>/dev/null) && break
+  echo "⏳ Esperando que la NIC de VM2 esté disponible..."
+  sleep 5
+done
+NIC_NAME2=$(basename $NIC_ID2)
+az network nic ip-config address-pool add --resource-group $RG --nic-name $NIC_NAME2 --ip-config-name ipconfig1 --lb-name $LB --address-pool $BACKEND
 NIC_ID1=$(az vm show --resource-group $RG --name $VM1 --query "networkProfile.networkInterfaces[0].id" -o tsv)
 NIC_NAME1=$(basename $NIC_ID1)
 az network nic ip-config address-pool add --resource-group $RG --nic-name $NIC_NAME1 --ip-config-name ipconfig1 --lb-name $LB --address-pool $BACKEND
