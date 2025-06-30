@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 RG="rg-nlb-lab"
 LOCATION="eastus"
 VNET="vnet-nlb"
@@ -13,9 +15,8 @@ PROBE="http-probe"
 RULE="lb-rule-http"
 VM1="vm1"
 VM2="vm2"
-IP1="ipconfig-vm1"
-IP2="ipconfig-vm2"
 
+echo "🔐 Iniciando sesión..."
 az login
 
 echo "🔧 Creando grupo de recursos..."
@@ -25,7 +26,7 @@ echo "🌐 Creando VNet y subred..."
 az network vnet create --name $VNET --resource-group $RG --location $LOCATION --address-prefixes 10.20.0.0/16 --subnet-name $SUBNET --subnet-prefixes 10.20.1.0/24
 
 echo "🧱 Creando Availability Set..."
-az vm availability-set create --name $AVSET --resource-group $RG --location $LOCATION --platform-fault-domain-count 2 --platform-update-domain-count 2 --sku Aligned
+az vm availability-set create --name $AVSET --resource-group $RG --location $LOCATION --platform-fault-domain-count 2 --platform-update-domain-count 2
 
 echo "🔒 Creando NSG con reglas..."
 az network nsg create --resource-group $RG --name $NSG --location $LOCATION
@@ -53,12 +54,14 @@ echo "⏳ Esperando a que las VMs estén listas..."
 sleep 30
 
 echo "🔁 Agregando NIC de VM1 al backend del LB..."
-NIC1=$(az vm nic list --resource-group $RG --vm-name $VM1 --query "[0].name" -o tsv)
-az network nic ip-config address-pool add --resource-group $RG --nic-name $NIC1 --ip-config-name $IP1 --lb-name $LB --address-pool $BACKEND
+NIC_ID1=$(az vm show --resource-group $RG --name $VM1 --query "networkProfile.networkInterfaces[0].id" -o tsv)
+NIC_NAME1=$(basename $NIC_ID1)
+az network nic ip-config address-pool add --resource-group $RG --nic-name $NIC_NAME1 --ip-config-name ipconfig1 --lb-name $LB --address-pool $BACKEND
 
 echo "🔁 Agregando NIC de VM2 al backend del LB..."
-NIC2=$(az vm nic list --resource-group $RG --vm-name $VM2 --query "[0].name" -o tsv)
-az network nic ip-config address-pool add --resource-group $RG --nic-name $NIC2 --ip-config-name $IP2 --lb-name $LB --address-pool $BACKEND
+NIC_ID2=$(az vm show --resource-group $RG --name $VM2 --query "networkProfile.networkInterfaces[0].id" -o tsv)
+NIC_NAME2=$(basename $NIC_ID2)
+az network nic ip-config address-pool add --resource-group $RG --nic-name $NIC_NAME2 --ip-config-name ipconfig1 --lb-name $LB --address-pool $BACKEND
 
 echo "✅ Laboratorio creado correctamente."
 IP=$(az network public-ip show --resource-group $RG --name pip-nlb --query ipAddress -o tsv)
