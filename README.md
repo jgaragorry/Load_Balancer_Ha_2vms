@@ -1,263 +1,115 @@
-## 🧠 README.md - Laboratorio: Load Balancer con Alta Disponibilidad en Azure
 
-### 🎯 Objetivo General
-Aprender a implementar un **Load Balancer Público** en Azure con 2 máquinas virtuales Linux distribuidas en un Availability Set, usando buenas prácticas de etiquetado, seguridad y eficiencia de costos.
+# 🧪 Laboratorio Azure: Network Load Balancer con Alta Disponibilidad
 
----
+## 📘 Descripción General
+Este laboratorio permite desplegar una arquitectura de alta disponibilidad en Azure usando un **Load Balancer (NLB)** tipo Basic, conectado a **dos máquinas virtuales (VMs)** Linux en un Availability Set. Las VMs tienen instalado **Nginx** para responder al tráfico HTTP.
 
-## ✅ ¿Qué aprenderás?
-- Crear una red virtual (VNet) y subred
-- Implementar 2 VMs con alta disponibilidad en un Availability Set
-- Desplegar un **Load Balancer Público** y configurar reglas de tráfico
-- Validar el funcionamiento del balanceador con `curl`, navegador y Azure Portal
-- Automatizar la creación, verificación y eliminación de recursos con scripts
+Es ideal para estudiantes que desean entender:
+- Balanceo de carga nivel TCP en Azure
+- Alta disponibilidad con Availability Sets
+- Configuración de reglas de NSG y probes de salud
 
 ---
 
-## 🧪 Requisitos
-- Azure CLI o **Azure Cloud Shell**
-- Suscripción activa de Azure (Freetier compatible)
-- Conocimientos básicos de terminal Bash/Linux
-- Acceso a navegador y/o terminal con `curl`
+## ✅ Requisitos Previos
+- Tener una cuenta de Azure activa
+- Tener instalado [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
+- Acceso a terminal Bash (Linux, WSL o Cloud Shell)
 
 ---
 
-## 💸 Estimación de Costo
-> ⚠️ Si ejecutas y eliminas todo en menos de 1 hora, el costo estimado será **menor a $0.10 USD**.
+## 📂 Archivos incluidos
+- `create_lab_nlb.sh` → script principal para crear toda la infraestructura
+- `delete_lab_nlb.sh` → script para eliminar todos los recursos del laboratorio
+- `verify_lab_nlb.sh` → script para verificar que el laboratorio funciona correctamente
 
 ---
 
-## 📂 Estructura del Repositorio
+## 🚀 Pasos de Ejecución
 
-```bash
-load_balancer_ha_2vms/
-├── crear_lab_nlb.sh         # Script para crear toda la infraestructura
-├── verificar_lab_nlb.sh     # Script para verificar conectividad y reglas
-├── eliminar_lab_nlb.sh      # Script para eliminar toda la infraestructura
-└── README.md                # Documentación detallada
-```
-
----
-
-## ⚙️ Descripción de los Scripts
-
-### 🔧 crear_lab_nlb.sh
-Crea todos los recursos necesarios:
-- Grupo de recursos con etiquetas FinOps
-- Red virtual y subred
-- Availability Set
-- 2 máquinas virtuales Ubuntu
-- NSG con regla HTTP (puerto 80)
-- IP pública
-- Load Balancer + regla de tráfico + health probe
-- Contenido personalizado en Nginx para identificar cada VM
-
-> ⚠️ Ejecutar `az login` antes si no estás autenticado.
-
-### 🔍 verificar_lab_nlb.sh
-Realiza las siguientes acciones:
-- Obtiene la IP pública del Load Balancer
-- Ejecuta múltiples consultas `curl` para validar el tráfico distribuido entre las 2 VMs
-- Verifica alternancia de respuestas (`Hola desde VM1`, `Hola desde VM2`, ...)
-
-### 🗑 eliminar_lab_nlb.sh
-- Solicita confirmación para evitar eliminaciones accidentales
-- Elimina el grupo de recursos completo (y por tanto todos los componentes)
-- No devuelve el prompt hasta que se eliminen todos los recursos
-- Muestra mensajes informativos sobre el progreso de eliminación
-
----
-
-## 🔎 Validación del Balanceador
-
-### 🌐 Obtener la IP Pública
-```bash
-az network public-ip show -g rg-nlb-lab -n pip-nlb --query ipAddress -o tsv
-```
-
-### 🔁 Probar desde terminal (Linux/macOS/WSL)
-```bash
-for i in {1..6}; do curl http://<IP_PUBLICA>; echo ""; done
-```
-
-### 🌍 Probar desde navegador
-Abre `http://<IP_PUBLICA>` en tu navegador varias veces o presiona F5 varias veces. Deberías ver:
-```
-Hola desde VM1
-Hola desde VM2
-Hola desde VM1
-...
-```
-
-### 📊 Validación desde Azure Portal
-1. Ir a **Load Balancer** → `lb-nlb`
-2. Verifica:
-   - Frontend IP Configuration: IP estática
-   - Backend Pool: Ambas VMs conectadas
-   - Health Probe: Estado `Succeeded`
-   - Load Balancing Rule: Puerto 80 activo
-
----
-
-## 🚀 Orden recomendado de ejecución paso a paso
-
-### Paso 1: Iniciar sesión en Azure
+1. **Iniciar sesión en Azure:**
 ```bash
 az login
 ```
 
-### Paso 2: Asignar permisos de ejecución y ejecutar los scripts en orden
+2. **Dar permisos de ejecución y correr el script:**
 ```bash
-chmod +x crear_lab_nlb.sh verificar_lab_nlb.sh eliminar_lab_nlb.sh
-
-# Crear toda la infraestructura
-./crear_lab_nlb.sh
-
-# Verificar funcionamiento del balanceador
-./verificar_lab_nlb.sh
-
-# Eliminar todos los recursos (tras finalizar las pruebas)
-./eliminar_lab_nlb.sh
+chmod +x create_lab_nlb.sh
+./create_lab_nlb.sh
 ```
 
-> 💡 Ejecuta los comandos desde tu equipo local o desde Azure Cloud Shell.
+3. **Esperar la salida final:**
+
+Verás algo como:
+```
+✅ Laboratorio creado correctamente.
+🌐 Accede al balanceador en: http://<IP-PUBLICA>
+```
+
+4. **Verifica en el navegador:**
+
+Abre `http://<IP-PUBLICA>` y deberías ver uno de los siguientes mensajes:
+- "Hola desde VM1"
+- "Hola desde VM2"
+
+Al refrescar varias veces, verás alternancia si el balanceo funciona.
 
 ---
 
-## 📜 Código fuente de los scripts
+## 🧪 Verificación del Laboratorio
 
-### 🔧 crear_lab_nlb.sh
+Una vez desplegado, puedes verificar automáticamente con:
+
 ```bash
-#!/bin/bash
-
-set -e
-
-RG="rg-nlb-lab"
-LOC="eastus"
-VNET="vnet-nlb"
-SUBNET="subnet-nlb"
-VM_SIZE="Standard_B1s"
-USERNAME="azureuser"
-PASSWORD="Password1234"
-AVSET="avset-nlb"
-
-az login
-
-az group create -n $RG -l $LOC --tags autor=gmtech proyecto=lab_nlb_ha
-
-az network vnet create -g $RG -n $VNET --address-prefix 10.20.0.0/16 \
-  --subnet-name $SUBNET --subnet-prefix 10.20.1.0/24
-
-az vm availability-set create -n $AVSET -g $RG \
-  --platform-fault-domain-count 2 --platform-update-domain-count 2
-
-az network nsg create -g $RG -n nsg-nlb
-az network nsg rule create -g $RG --nsg-name nsg-nlb -n Allow80 \
-  --priority 1000 --access Allow --protocol Tcp --direction Inbound \
-  --destination-port-range 80
-
-az network public-ip create -g $RG -n pip-nlb --sku Basic --allocation-method Static
-
-az network lb create -g $RG -n lb-nlb --sku Basic --public-ip-address pip-nlb \
-  --frontend-ip-name lb-front --backend-pool-name lb-backend
-
-az network lb rule create -g $RG --lb-name lb-nlb -n lb-rule-http \
-  --backend-pool-name lb-backend --backend-port 80 --frontend-ip-name lb-front \
-  --frontend-port 80 --protocol Tcp --probe-name http-probe
-
-az network lb probe create -g $RG --lb-name lb-nlb -n http-probe \
-  --protocol Http --port 80 --path /
-
-for i in 1 2; do
-  az vm create \
-    --resource-group $RG \
-    --name vm$i-nlb \
-    --image Ubuntu2204 \
-    --size $VM_SIZE \
-    --admin-username $USERNAME \
-    --admin-password $PASSWORD \
-    --vnet-name $VNET \
-    --subnet $SUBNET \
-    --nsg nsg-nlb \
-    --availability-set $AVSET \
-    --no-wait
-
-done
-
-sleep 90
-
-for i in 1 2; do
-  NIC_ID=$(az vm show -g $RG -n vm$i-nlb --query 'networkProfile.networkInterfaces[0].id' -o tsv)
-  az network nic ip-config address-pool add \
-    --address-pool lb-backend \
-    --ip-config-name ipconfig1 \
-    --nic-name $(basename $NIC_ID) \
-    --resource-group $RG \
-    --lb-name lb-nlb \
-    --backend-pool-name lb-backend
-
-  az vm run-command invoke -g $RG -n vm$i-nlb \
-    --command-id RunShellScript \
-    --scripts "echo 'Hola desde VM$i' | sudo tee /var/www/html/index.html && sudo apt update && sudo apt install nginx -y && sudo systemctl start nginx"
-done
-
-IP_PUBLICA=$(az network public-ip show -g $RG -n pip-nlb --query ipAddress -o tsv)
-echo "✅ Accede desde navegador o curl: http://$IP_PUBLICA"
+chmod +x verify_lab_nlb.sh
+./verify_lab_nlb.sh
 ```
 
-### 🔍 verificar_lab_nlb.sh
-```bash
-#!/bin/bash
-
-RG="rg-nlb-lab"
-IP=$(az network public-ip show -g $RG -n pip-nlb --query ipAddress -o tsv)
-
-echo "🌐 IP Pública del Load Balancer: $IP"
-
-echo "🔁 Verificando balanceo (4 consultas)..."
-for i in {1..4}; do
-  curl http://$IP
-  echo ""
-done
-```
-
-### 🗑 eliminar_lab_nlb.sh
-```bash
-#!/bin/bash
-
-RG="rg-nlb-lab"
-
-echo "⚠️ Vas a eliminar todos los recursos del laboratorio..."
-echo "⏳ Si lo usaste menos de 1h, el costo estimado es < $0.10 USD"
-echo "¿Continuar? (s/n): "
-read confirm
-
-if [[ "$confirm" != "s" ]]; then
-  echo "❌ Cancelado."
-  exit 1
-fi
-
-az group delete -n $RG --yes --no-wait
-
-while az group exists -n $RG; do
-  echo "⌛ Eliminando grupo de recursos..."
-  sleep 10
-done
-
-echo "✅ Laboratorio eliminado."
-```
+Este script realiza:
+- Obtención y validación de la IP pública
+- Peticiones HTTP repetidas con `curl`
+- Estado del Load Balancer y las VMs
 
 ---
 
-## 🧑‍🏫 Autor
-Jose Garagorry — Instructor Especialista en Azure Networking
+## 🧹 Limpieza de Recursos
+Para evitar costos innecesarios, ejecuta:
+
+```bash
+chmod +x delete_lab_nlb.sh
+./delete_lab_nlb.sh
+```
+
+Este script elimina el grupo de recursos completo (`rg-nlb-lab`) sin pedir confirmación.
 
 ---
 
-🎓 Este laboratorio está optimizado para estudiantes y profesionales que deseen comprender de forma práctica:
-- Alta disponibilidad en Azure
-- Balanceo de carga con bajo costo
-- Automatización de infraestructura
-- Validación efectiva desde CLI y Portal
+## ⚠️ Errores Comunes y Soluciones
 
-> Incluye buenas prácticas de **etiquetado**, principios **FinOps**, y una estructura didáctica para principiantes y autodidactas.
+### ❌ Error: `InvalidResourceReference` (http-probe not found)
+**Causa:** El probe de salud fue referenciado antes de crearse.
+**Solución:** El script ya ha sido corregido para crear el probe **antes** de la regla de balanceo.
+
+### ❌ No se puede acceder por HTTP
+**Verifica:**
+- Que el NSG permita el puerto 80
+- Que Nginx esté activo: `sudo systemctl status nginx`
+
+---
+
+## 🧠 Buenas Prácticas Enseñadas
+- Uso de Availability Sets para alta disponibilidad
+- Configuración de Load Balancer Basic
+- Asociación de NSG a VM directamente
+- Script automatizado y reutilizable con variables claras
+
+---
+
+## 📚 Recursos Recomendados
+- [Documentación Azure Load Balancer](https://learn.microsoft.com/es-es/azure/load-balancer/load-balancer-overview)
+- [NGINX Ubuntu Setup](https://ubuntu.com/server/docs/service-nginx)
+- [Azure CLI Reference](https://learn.microsoft.com/es-es/cli/azure/)
+
+---
+
+© 2025 | GMTech Labs para uso educativo. Compartir con fines académicos.
