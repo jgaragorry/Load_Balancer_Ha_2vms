@@ -5,18 +5,26 @@ Propósito  Desplegar un front‑end web altamente disponible y de muy bajo co
 📁 Estructura del repositorio
 
 .
-├── README.md              # Esta guía 📖
+
+├── README.md # Esta guía 📖
+
 └── scripts/
-    ├── deploy.sh          # Aprovisiona toda la pila
-    ├── validate.sh        # Comprueba salud + guard‑rails de coste
-    └── destroy.sh         # Limpieza completa (espera a que desaparezca el RG)
+
+├── deploy.sh # Aprovisiona toda la pila
+
+├── validate.sh # Comprueba salud + guard‑rails de coste
+
+└── destroy.sh # Limpieza completa (espera a que desaparezca el RG)
 
 1️⃣ Arquitectura
 
 Internet → Public IP → Standard Load Balancer
-                    ↙︎              ↘︎
-            VM‑01 (AZ 1)      VM‑02 (AZ 2)
-             ↳ Availability Set (si la región no soporta Zonas)
+
+↙︎ ↘︎
+
+VM‑01 (AZ 1) VM‑02 (AZ 2)
+
+↳ Availability Set (si la región no soporta Zonas)
 
 Componente
 
@@ -26,7 +34,7 @@ Justificación FinOps
 
 VM
 
-Standard_B1s
+Standard\_B1s
 
 Tamaño burstable más barato para demos productivas
 
@@ -50,29 +58,39 @@ Necesaria para el front‑end; redundante por zona
 
 2️⃣ Guía rápida
 
-# 0) Clonar
-git clone <repo-url> && cd azure-ha-loadbalancer-repo
+\# 0) Clonar
 
-# 1) Login y subscripción
+git clone && cd azure-ha-loadbalancer-repo
+
+\# 1) Login y subscripción
+
 az login
-az account set --subscription "<SUB_ID>"
 
-# 2) Personalizar variables (opcional)
+az account set --subscription ""
+
+\# 2) Personalizar variables (opcional)
+
 cp scripts/.env.example .env && nano .env
 
-# 3) Desplegar 🔧
+\# 3) Desplegar 🔧
+
 bash scripts/deploy.sh
 
-# 4) Validar ✅
+\# 4) Validar ✅
+
 bash scripts/validate.sh
 
-# 5) Destruir 🧹
-# Interactivo
+\# 5) Destruir 🧹
+
+\# Interactivo
+
 bash scripts/destroy.sh
-# Forzar sin preguntas
+
+\# Forzar sin preguntas
+
 bash scripts/destroy.sh --force
 
-Tip 💰  Activa Spot VMs (DEPLOY_USE_SPOT=true) y el coste baja ~70 %.
+Tip 💰  Activa Spot VMs (DEPLOY\_USE\_SPOT=true) y el coste baja ~70 %.
 
 3️⃣ Convención de etiquetas (tags)
 
@@ -89,8 +107,6 @@ Demo-HALB
 Agrupación lógica
 
 Owner
-
-<usuario>
 
 Responsabilidad
 
@@ -118,7 +134,7 @@ Todas las etiquetas se heredan en cada recurso → facilitan análisis de costes
 
 NSG permite solo HTTP 80 (Internet) y SSH 22 solo desde tu IP.
 
-JIT SSH opcional (ENABLE_JIT=true).
+JIT SSH opcional (ENABLE\_JIT=true).
 
 Clave SSH gestionada; sin contraseñas.
 
@@ -162,10 +178,6 @@ $18.25
 
 Total estimado
 
-
-
-
-
 ≈ $57.67/mes
 
 Coste para laboratorio de 1 hora
@@ -208,7 +220,7 @@ Prueba salud HTTP.
 
 Verifica tamaños burstable y estado running.
 
-Si configuras MAX_DAILY_BUDGET, avisa cuando el gasto previsto supera tu umbral.
+Si configuras MAX\_DAILY\_BUDGET, avisa cuando el gasto previsto supera tu umbral.
 
 9️⃣ Referencias
 
@@ -219,4 +231,3 @@ Documentación Azure Load Balancer
 FinOps Foundation – Azure Cost Optimisation
 
 README actualizado: 01‑Jul‑2025
-
