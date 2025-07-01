@@ -1,119 +1,139 @@
-# Azure HA Load Balancer with Two Linux VMs – FinOps-Optimised Reference
+# ☁️ Azure HA Load Balancer con 2 VMs Linux – Optimizado para FinOps 💰
 
-> **Propósito** Desplegar de forma totalmente automatizada un front-end web altamente disponible y **de muy bajo coste** en Azure utilizando un Load Balancer Standard y dos VMs Linux. Pensado para lanzarse desde WSL (Ubuntu 24.04 LTS) con Bash + Azure CLI, este repositorio demuestra buenas prácticas de FinOps, seguridad y gobernanza, e incluye un **teardown** fiable para evitar cargos inesperados.
+<p align="center">
+  <img src="https://img.shields.io/badge/Azure-blue?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Azure Badge">
+  <img src="https://img.shields.io/badge/Bash-black?style=for-the-badge&logo=gnubash&logoColor=white" alt="Bash Badge">
+  <img src="https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white" alt="Ubuntu Badge">
+  <img src="https://img.shields.io/badge/Licencia-MIT-green.svg?style=for-the-badge" alt="Licencia MIT">
+</p>
+
+Este proyecto despliega un **frontend web de alta disponibilidad y bajo coste en Azure**. Utiliza un **Load Balancer Standard** y **dos VMs Linux (Ubuntu 22.04 LTS)**. Todo está automatizado con scripts de **Bash** y la **CLI de Azure**, siguiendo las mejores prácticas de FinOps y seguridad.
 
 ---
 
-## 📁 Estructura del repositorio
-```text
-.
-├── README.md              # Esta guía 📖
-└── scripts/
-    ├── deploy.sh          # Aprovisiona toda la pila
-    ├── validate.sh        # Comprueba salud + guard-rails de coste
-    └── destroy.sh         # Limpieza completa (espera a que desaparezca el RG)
-1️⃣ Arquitectura
-text
-Copiar
-Editar
-Internet → Public IP → Standard Load Balancer
-                    ↙︎              ↘︎
-            VM-01 (AZ 1)      VM-02 (AZ 2)
-             ↳ Availability Set (fallback cuando la región no soporta Zonas)
-Componente	SKU / Tamaño	Justificación FinOps
-VM	Standard_B1s	Tamaño burstable más barato para demos productivas
-Disco SO	Standard SSD 64 GiB	Más económico que Premium, suficiente para un web estático
-Load Balancer	Standard (zone-redundant)	Opción multi-AZ más barata
-Public IP	Standard	Necesaria para el front-end; redundante por zona
+## 🎯 Propósito
 
-2️⃣ Guía rápida
-bash
-Copiar
-Editar
-# 0) Clonar
-git clone <repo-url> && cd azure-ha-loadbalancer-repo
+El objetivo es crear una infraestructura web resiliente y económica, ideal para demos, laboratorios o entornos de producción ligeros. La automatización garantiza un despliegue y una destrucción rápidos y fiables, evitando costes inesperados.
 
-# 1) Login y subscripción
+---
+
+## 🏗️ Arquitectura
+
+🌐 Internet → 🔗 IP Pública → ⚖️ Standard Load Balancer  
+↙︎ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↘︎  
+🖥️ VM-01 (AZ 1) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 🖥️ VM-02 (AZ 2)
+
+### **Componentes y Justificación FinOps**
+
+| Componente            | SKU / Tamaño           | Justificación de Coste (FinOps)                                          |
+|-----------------------|------------------------|---------------------------------------------------------------------------|
+| Máquina Virtual (VM)  | `Standard_B1s`         | El tamaño "burstable" más económico para demos productivas.              |
+| Disco del SO          | `Standard SSD 64 GiB`  | Más barato que Premium, suficiente para contenido web estático.          |
+| Balanceador de Carga  | `Standard (Z-redundant)` | La opción multi-AZ más asequible.                                       |
+| IP Pública            | `Standard`             | Necesaria para el frontend y con redundancia de zona.                    |
+
+---
+
+## 🚀 Guía Rápida
+
+### **1. Prerrequisitos**
+
+- Azure CLI ≥ 2.60 (`az version`)
+- Bash 4+ (se recomienda WSL 2 con Ubuntu 24.04)
+- `jq` y `curl` instalados
+- Rol de **Contribuidor** en la suscripción de Azure
+
+### **2. Pasos de Despliegue**
+
+```bash
+# Clonar el repositorio
+git clone https://github.com/jgaragorry/Load_Balancer_Ha_2vms.git
+cd Load_Balancer_Ha_2vms
+
+# Iniciar sesión y configurar la suscripción
 az login
-az account set --subscription "<SUB_ID>"
+az account set --subscription "TU_ID_DE_SUSCRIPCION"
 
-# 2) Personalizar variables (opcional)
-cp scripts/.env.example .env && nano .env
+# Personalizar las variables de entorno
+cp scripts/.env.example .env
+nano .env
 
-# 3) Desplegar 🔧
+# Desplegar la infraestructura
 bash scripts/deploy.sh
 
-# 4) Validar ✅
+# Validar instalación
 bash scripts/validate.sh
 
-# 5) Destruir 🧹
-# Interactivo
+# Destruir todo para evitar costes
 bash scripts/destroy.sh
-# Forzar sin preguntas
+
+# Destrucción forzada
 bash scripts/destroy.sh --force
-Tip 💰 Activa Spot VMs (DEPLOY_USE_SPOT=true) y el coste baja ~70 %.
+```
 
-3️⃣ Convención de etiquetas (tags)
-Clave	Ejemplo	Motivo
-Project	Demo-HALB	Agrupación lógica
-Owner	tu usuario	Responsabilidad
-Environment	Dev	Etapa de ciclo de vida
-CostCenter	CC-1234	Mapeo FinOps
-DeleteBy	YYYY-MM-DD	Aviso para auto-limpieza
+💡 Consejo FinOps: Activa las VMs Spot para ahorrar hasta un 70% (`DEPLOY_USE_SPOT=true` en `.env`).
 
-Todas las etiquetas se heredan en cada recurso → facilitan análisis de costes.
+---
 
-4️⃣ Seguridad 🔒
-NSG permite solo HTTP 80 desde Internet y SSH 22 solo desde tu IP.
+## 📂 Estructura del Repositorio
 
-JIT SSH opcional (ENABLE_JIT=true).
+```
+.
+├── README.md
+└── scripts/
+    ├── deploy.sh
+    ├── validate.sh
+    └── destroy.sh
+```
 
-Clave SSH gestionada; sin contraseñas.
+### 📜 Scripts Detallados
 
-RG dedicado para aislar y limitar el blast-radius.
+| Script        | Descripción                                                                 |
+|---------------|------------------------------------------------------------------------------|
+| deploy.sh     | Crea la infraestructura completa y muestra la URL final del frontend.       |
+| validate.sh   | Valida el estado del LB y de las VMs, incluyendo tamaño y estado.           |
+| destroy.sh    | Elimina todo de forma segura y verifica su correcta eliminación.            |
 
-destroy.sh espera hasta que Azure confirme que no queda nada.
+---
 
-5️⃣ Costes 📊
-Recurso	Cant	Precio hora	Mensual (730 h)
-VM B1s	2	$0.022	$32.12
-Disco SSD 64 GiB	2	$0.005	$7.30
-Load Balancer Std	1	$0.025	$18.25
-Total estimado			≈ $57.67/mes
+## 🔒 Seguridad
 
-Laboratorio de 1 hora
-≈ $0.08 (57.67 / 730).
-Destruye con destroy.sh inmediatamente tras la práctica para evitar cargos extra.
+- **NSG:** HTTP (80) abierto; SSH (22) solo desde tu IP
+- **JIT:** Opcional con `ENABLE_JIT=true`
+- **Autenticación:** SSH key gestionada (sin contraseñas)
+- **Aislamiento:** Grupo de recursos dedicado
 
-6️⃣ Qué hace cada script
-Script	Descripción
-deploy.sh	Crea RG, VNet, NSG, IP pública, Load Balancer, dos NICs y dos VMs Ubuntu 22.04 con NGINX vía cloud-init. Añade las NICs al backend pool y muestra la URL final.
-validate.sh	Comprueba HTTP 200 en el LB, verifica que las VMs son B1s y están running. Falla si algo se desvía.
-destroy.sh	Borra el RG; con --force ignora confirmación. Hace poll cada 10 s hasta que el grupo deja de existir.
+---
 
-7️⃣ Requisitos previos
-Azure CLI ≥ 2.60 (az version)
+## 📊 Estimación de Costes
 
-Bash 4+ (WSL 2 / Ubuntu 24.04)
+| Recurso            | Cantidad | Precio/Hora (USD) | Mensual (730h) |
+|--------------------|----------|-------------------|----------------|
+| VM B1s             | 2        | $0.022            | $32.12         |
+| Disco SSD 64 GiB   | 2        | $0.005            | $7.30          |
+| Load Balancer Std  | 1        | $0.025            | $18.25         |
+| **Total Estimado** |          |                   | **≈ $57.67**   |
 
-jq y curl
+💡 1 hora de laboratorio ≈ $0.08. No olvides ejecutar `destroy.sh`.
 
-Rol Contributor sobre la subscripción
+---
 
-8️⃣ Pasarela de seguridad y guard-rails
-El script validate.sh sirve de checklist FinOps:
+## 🏷️ Convención de Etiquetas (Tags)
 
-Prueba salud HTTP.
+| Clave       | Ejemplo              | Motivo                                 |
+|-------------|----------------------|----------------------------------------|
+| Project     | Demo-HALB            | Agrupación lógica                      |
+| Owner       | tu_email@dominio.com | Identificación del responsable         |
+| Environment | Dev                  | Dev, QA, Prod                          |
+| CostCenter  | CC-1234              | Seguimiento FinOps                     |
+| DeleteBy    | YYYY-MM-DD           | Limpieza automática recomendada        |
 
-Verifica tamaños burstable y estado running.
+---
 
-Si configuras MAX_DAILY_BUDGET, avisa cuando el gasto previsto supera tu umbral.
+## 📚 Referencias
 
-9️⃣ Referencias
-Azure Well-Architected Framework – Cost Optimisation
+- Azure Well-Architected Framework – Cost Optimization  
+- [Documentación Azure Load Balancer](https://learn.microsoft.com/en-us/azure/load-balancer/)  
+- FinOps Foundation – Cost Optimization on Azure
 
-Documentación Azure Load Balancer
-
-FinOps Foundation – Azure Cost Optimisation
-
-Versión README.md – actualizado: 01-Jul-2025
+📅 Actualizado el 1 de julio de 2025
